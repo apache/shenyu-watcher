@@ -8,7 +8,7 @@ Support jar to scan if the LICENSE file matches the jar under the lib folder.
 ## Use
 
 ```shell
-java -jar shenyu-watcher xxx.tar.gz 
+java -jar shenyu-watcher filePath/xxx.tar.gz 
 ```
 
 

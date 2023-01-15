@@ -50,7 +50,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>org.apache.shenyu.ShenyuEyes</mainClass>
+                            <mainClass>org.apache.shenyu.ShenyuWatcher</mainClass>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>./lib/</classpathPrefix>
                             <useUniqueVersions>false</useUniqueVersions>
