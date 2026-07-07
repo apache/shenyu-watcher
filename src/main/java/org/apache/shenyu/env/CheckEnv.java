@@ -22,6 +22,8 @@ import org.apache.commons.io.IOUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * @author sinsy
@@ -29,9 +31,11 @@ import java.nio.charset.StandardCharsets;
  */
 public class CheckEnv {
 
-    private final static String PYTHON_VERSION = "Python 3.8";
+    private final static String REQUIRED_PYTHON_VERSION = "3.8";
 
     public static boolean PYTHON_CHECK = false;
+    
+    private static final Pattern pattern = Pattern.compile("Python (\\d+\\.\\d+\\.\\d+)");
 
     static {
         String exe = "python -V";
@@ -40,16 +44,44 @@ public class CheckEnv {
             process = Runtime.getRuntime().exec(exe);
             InputStream inputStream = process.getInputStream();
             String str = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
-
-            if (str.contains(PYTHON_VERSION)) {
-                PYTHON_CHECK = true;
+            
+            Matcher matcher = pattern.matcher(str);
+            if (matcher.find()) {
+                System.out.println(matcher.group(1));
+                PYTHON_CHECK = isVersionGreaterOrEqual(matcher.group(1), REQUIRED_PYTHON_VERSION);
+            }
+            
+            if (!PYTHON_CHECK) {
+                exe = "python3 -V";
+            }
+            process = Runtime.getRuntime().exec(exe);
+            inputStream = process.getInputStream();
+            str = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+            
+            matcher = pattern.matcher(str);
+            if (matcher.find()) {
+                System.out.println(matcher.group(1));
+                PYTHON_CHECK = isVersionGreaterOrEqual(matcher.group(1), REQUIRED_PYTHON_VERSION);
             }
 
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-
+    }
+    private static boolean isVersionGreaterOrEqual(String version, String requiredVersion) {
+        String[] versionParts = version.split("\\.");
+        String[] requiredVersionParts = requiredVersion.split("\\.");
+        for (int i = 0; i < requiredVersionParts.length; i++) {
+            int v = Integer.parseInt(versionParts[i]);
+            int rv = Integer.parseInt(requiredVersionParts[i]);
+            if (v > rv) {
+                return true;
+            } else if (v < rv) {
+                return false;
+            }
+        }
+        return true;
     }
 
 }

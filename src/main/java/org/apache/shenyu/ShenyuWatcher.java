@@ -17,65 +17,69 @@
 
 package org.apache.shenyu;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.shenyu.entity.JarDO;
 import org.apache.shenyu.env.CheckEnv;
 import org.apache.shenyu.util.FileUtil;
 import org.apache.shenyu.util.StringUtil;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ShenyuWatcher {
-
+    
     public static void main(String[] args) {
-
+        
         // check py version
         System.out.println("Start to check python version...");
         if (CheckEnv.PYTHON_CHECK) {
             System.out.println("The python version check passed.");
-
+            
             String filePath = args[0];
-
-            String fileName = filePath.substring(filePath.lastIndexOf("\\") + 1);
-
+            
+            String fileName = filePath.substring(filePath.lastIndexOf(File.separator) + 1);
+            
             System.out.println("Start to unzip " + fileName + "...");
-
-            String destDir = filePath.substring(0, filePath.lastIndexOf("\\"));
+            
+            String destDir = filePath.substring(0, filePath.lastIndexOf(File.separator));
             String fileDir = fileName.replace(".tar.gz", "");
-
+            
             FileUtil.unTarGz(filePath, destDir);
             System.out.println("Decompression succeeded.");
             System.out.println("Start to check LICENSE...");
-            List<String> fileNames = FileUtil.getFileName(destDir + "\\" + fileDir + "\\lib");
-
+            List<String> fileNames = FileUtil.getFileName(destDir + File.separator + fileDir + File.separator + "lib");
+            
             JarDO jarDO = JarDO.build(fileNames);
-            String content = FileUtil.read(destDir + "\\" + fileDir + "\\LICENSE");
-
+            String content = FileUtil.read(destDir + File.separator + fileDir + File.separator + "LICENSE");
+            
             List<String> failureMatchJar = new ArrayList<>();
-
+            
             for (JarDO.ParseJar parseJar : jarDO.getParseJar()) {
-
+                
                 if (parseJar.getOriginal().contains("shenyu")) {
                     continue;
                 }
-
+                
                 if (!StringUtil.match(content, parseJar.getPackageName() + " " + parseJar.getVersion())) {
                     failureMatchJar.add(parseJar.getOriginal());
                 }
-
+                
             }
-
-            if (failureMatchJar.size() > 0) {
+            
+            if (CollectionUtils.isNotEmpty(failureMatchJar)) {
                 System.err.println("The following jars need to be modified: ");
                 failureMatchJar.forEach(System.err::println);
+            } else {
+                System.out.println("The license is ok ");
             }
-
+            
             jarDO.setFailureMatchJar(failureMatchJar);
-
+            
         } else {
             System.err.println("The python version not 3.8");
         }
-
+        
     }
-
+    
 }
