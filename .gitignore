@@ -6,3 +6,7 @@ gen
 target
 
 .idea
+
+# Python
+__pycache__/
+*.pyc
