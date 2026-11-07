@@ -246,7 +246,7 @@ Examples:
 ### CI Integration
 
 ```bash
-# In CI pipeline — exit code 1 if any dependency is missing
+# In CI pipeline — exit code 1 if any dependency is missing or cannot be parsed
 python shenyu_watcher.py /path/to/project
 
 # Auto-fix in CI (modifies LICENSE in place — review the diff in version control)
@@ -269,13 +269,14 @@ mvn clean package
 java -jar target/shenyu-watcher-1.0-SNAPSHOT.jar filePath/xxx.tar.gz
 ```
 
-Checks a `.tar.gz` release archive: extracts it, scans `lib/` for JAR filenames, parses each into package name + version, and verifies against the LICENSE file inside the archive.
+Checks a `.tar.gz` release archive: extracts it, scans `lib/` for JAR filenames, parses each into package name + version, and verifies against the LICENSE file inside the archive. The command exits with status 1 when a dependency is missing, a shipped JAR cannot be parsed, or the archive has no usable dependency inventory.
 
 ### Limitations
 
 - Requires Python ≥ 3.8 installed (checked at startup but not actually used)
 - JAR filename parsing uses a regex that can fail for artifact IDs containing digits (e.g., `commons-lang3-3.14.0.jar`)
-- Uses regex matching for LICENSE checks — `.` in version strings matches any character, causing potential false matches
+- Unparseable JARs and missing LICENSE declarations now cause a non-zero exit status
+- LICENSE checks use literal matching; punctuation in versions cannot create false matches
 - No transitive dependency resolution — only sees what's physically in the `lib/` folder
 - No auto-fix capability
 

@@ -42,11 +42,7 @@ public class StringUtil {
     }
 
     public static boolean match(String content, String checkTarget) {
-        Pattern pattern = Pattern.compile(checkTarget);
-
-        Matcher matcher = pattern.matcher(content);
-
-        return matcher.find();
+        return content != null && checkTarget != null && content.contains(checkTarget);
     }
 
 }
