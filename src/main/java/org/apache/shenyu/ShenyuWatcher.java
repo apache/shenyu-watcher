@@ -95,6 +95,7 @@ public class ShenyuWatcher {
             
         } else {
             System.err.println("The python version not 3.8");
+            System.exit(1);
         }
         
     }

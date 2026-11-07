@@ -274,7 +274,7 @@ Checks a `.tar.gz` release archive: extracts it, scans `lib/` for JAR filenames,
 ### Limitations
 
 - Requires Python ≥ 3.8 installed (checked at startup but not actually used)
-- JAR filename parsing uses a regex that can fail for artifact IDs containing digits (e.g., `commons-lang3-3.14.0.jar`)
+- JAR filename parsing uses the last version-looking suffix, so artifact IDs containing digits (e.g., `commons-lang3-3.14.0.jar`) are handled correctly
 - Unparseable JARs and missing LICENSE declarations now cause a non-zero exit status
 - LICENSE checks use literal matching; punctuation in versions cannot create false matches
 - No transitive dependency resolution — only sees what's physically in the `lib/` folder
