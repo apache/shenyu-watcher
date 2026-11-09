@@ -30,7 +30,11 @@ import java.util.List;
 public class ShenyuWatcher {
     
     public static void main(String[] args) {
-        
+        if (args.length != 1) {
+            System.err.println("Usage: java -jar shenyu-watcher.jar <release-archive.tar.gz>");
+            System.exit(2);
+        }
+
         // check py version
         System.out.println("Start to check python version...");
         if (CheckEnv.PYTHON_CHECK) {
@@ -67,17 +71,31 @@ public class ShenyuWatcher {
                 
             }
             
+            if (CollectionUtils.isNotEmpty(jarDO.getFailureParseJar())) {
+                System.err.println("The following jars could not be parsed: ");
+                jarDO.getFailureParseJar().forEach(System.err::println);
+            }
+
             if (CollectionUtils.isNotEmpty(failureMatchJar)) {
                 System.err.println("The following jars need to be modified: ");
                 failureMatchJar.forEach(System.err::println);
-            } else {
+            }
+
+            if (CollectionUtils.isEmpty(jarDO.getFailureParseJar())
+                    && CollectionUtils.isEmpty(failureMatchJar)) {
                 System.out.println("The license is ok ");
             }
             
             jarDO.setFailureMatchJar(failureMatchJar);
+
+            if (CollectionUtils.isNotEmpty(jarDO.getFailureParseJar())
+                    || CollectionUtils.isNotEmpty(failureMatchJar)) {
+                System.exit(1);
+            }
             
         } else {
             System.err.println("The python version not 3.8");
+            System.exit(1);
         }
         
     }

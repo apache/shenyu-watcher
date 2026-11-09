@@ -416,6 +416,9 @@ def _extract_gav_from_jar(jar_path: str) -> Optional[Tuple[str, str, str, str]]:
     pom.properties is present or the jar cannot be read as a zip.
     """
     filename = os.path.basename(jar_path)
+    if not zipfile.is_zipfile(jar_path):
+        return "", "", "", ""
+
     pom_text = None
     try:
         with zipfile.ZipFile(jar_path) as zf:
@@ -437,7 +440,8 @@ def _extract_gav_from_jar(jar_path: str) -> Optional[Tuple[str, str, str, str]]:
     return "", aid, ver, classifier
 
 
-def resolve_dependencies_from_lib(lib_dir: str) -> List[Dependency]:
+def resolve_dependencies_from_lib(lib_dir: str,
+                                  parse_failures: Optional[List[str]] = None) -> List[Dependency]:
     """
     Resolve dependencies by scanning the jars in an assembled lib/ directory.
 
@@ -465,7 +469,9 @@ def resolve_dependencies_from_lib(lib_dir: str) -> List[Dependency]:
             continue
         gid, aid, ver, classifier = gav
         if not aid or not ver:
-            # Could not parse at all — skip rather than emit garbage.
+            # An unparseable shipped JAR is a failed audit, not a dependency to skip.
+            if parse_failures is not None:
+                parse_failures.append(os.path.basename(jar_path))
             continue
 
         if gid:
@@ -1292,8 +1298,9 @@ def run_check(project_dir: str, license_path: Optional[str] = None,
     #    and works for distribution modules Maven can't resolve), then Maven,
     #    then pom.xml parsing as a last-resort fallback.
     resolved_lib = None if no_lib else resolve_lib_dir(project_dir, lib_dir)
+    parse_failures: List[str] = []
     if resolved_lib:
-        deps = resolve_dependencies_from_lib(resolved_lib)
+        deps = resolve_dependencies_from_lib(resolved_lib, parse_failures)
     else:
         try:
             deps = resolve_dependencies(project_dir)
@@ -1306,7 +1313,7 @@ def run_check(project_dir: str, license_path: Optional[str] = None,
 
     if not deps:
         print("⚠️  No dependencies found.", file=sys.stderr)
-        return CheckResult()
+        return CheckResult(parse_failures=parse_failures)
 
     # 2. Locate and read LICENSE
     if license_path is not None:
@@ -1327,7 +1334,7 @@ def run_check(project_dir: str, license_path: Optional[str] = None,
     skip_keywords = {"shenyu"}
 
     # 4. Check each dependency
-    result = CheckResult(total=len(deps))
+    result = CheckResult(total=len(deps), parse_failures=parse_failures)
 
     for dep in deps:
         # Skip project's own modules (by artifactId keyword, e.g. "shenyu")
@@ -1376,7 +1383,14 @@ def print_result(result: CheckResult):
     print(f"  Skipped (test/provided): {len(result.skipped_scope)}")
     print(f"  {GREEN}Matched in LICENSE:       {len(result.matched)}{RESET}")
     print(f"  {RED}NOT matched in LICENSE:    {len(result.unmatched)}{RESET}")
+    print(f"  {RED}Unparseable JARs:           {len(result.parse_failures)}{RESET}")
     print()
+
+    if result.parse_failures:
+        print(f"{RED}{BOLD}❌ {len(result.parse_failures)} shipped JAR(s) could not be parsed{RESET}")
+        for name in sorted(result.parse_failures):
+            print(f"  {RED}• {name}{RESET}")
+        print()
 
     if result.unmatched:
         # Group unmatched by groupId for a concise summary
@@ -1412,13 +1426,18 @@ def print_result(result: CheckResult):
             print(f"  • {dep.coordinate} [{dep.scope}]")
         print()
 
-    if not result.unmatched:
+    if not result.unmatched and not result.parse_failures:
         print(f"{GREEN}{BOLD}✅ All runtime dependencies are properly declared in LICENSE!{RESET}")
         print()
 
     # Summary
-    if result.unmatched:
-        print(f"{RED}{BOLD}Result: FAIL — {len(result.unmatched)} dependency(ies) missing from LICENSE{RESET}")
+    if result.unmatched or result.parse_failures:
+        reasons = []
+        if result.unmatched:
+            reasons.append(f"{len(result.unmatched)} dependency(ies) missing from LICENSE")
+        if result.parse_failures:
+            reasons.append(f"{len(result.parse_failures)} unparseable JAR(s)")
+        print(f"{RED}{BOLD}Result: FAIL — {'; '.join(reasons)}{RESET}")
         return False
     else:
         print(f"{GREEN}{BOLD}Result: PASS{RESET}")
@@ -1779,7 +1798,7 @@ Examples:
         # run_check calls sys.exit(1) on Maven failure — let it propagate
         raise
 
-    print_result(result)
+    passed = print_result(result)
 
     # --pr implies --fix (a PR needs a LICENSE change to exist).
     do_fix = args.fix or args.pr
@@ -1831,6 +1850,7 @@ Examples:
             matched=result.matched,
             unmatched=[],
             skipped_scope=result.skipped_scope,
+            parse_failures=result.parse_failures,
         )
         for dep in result.unmatched:
             if check_dependency_in_license(dep, license_content):
@@ -1847,6 +1867,11 @@ Examples:
                 print(f"\n{YELLOW}   These remain unmatched and need manual review — see the PR body.{RESET}")
         else:
             print(f"\n{GREEN}{BOLD}✅ All dependencies now properly declared in LICENSE!{RESET}")
+
+        if new_result.unmatched or new_result.parse_failures:
+            sys.exit(1)
+    elif not passed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
